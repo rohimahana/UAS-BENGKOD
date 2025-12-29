@@ -1,0 +1,26 @@
+{
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "build": "vite build",
+        "dev": "vite",
+        "format": "prettier --write . && php-cs-fixer fix && blade-formatter --write resources/views/**/*.blade.php",
+        "format:check": "prettier --check . && php-cs-fixer fix --dry-run --diff && blade-formatter --check resources/views/**/*.blade.php",
+        "format:js": "prettier --write .",
+        "format:php": "php-cs-fixer fix",
+        "format:php-check": "php-cs-fixer fix --dry-run --diff",
+        "format:blade": "blade-formatter --write resources/views/**/*.blade.php",
+        "format:blade-check": "blade-formatter --check resources/views/**/*.blade.php"
+    },
+    "devDependencies": {
+        "autoprefixer": "^10.4.20",
+        "axios": "^1.7.4",
+        "concurrently": "^9.0.1",
+        "laravel-vite-plugin": "^1.2.0",
+        "postcss": "^8.4.47",
+        "prettier": "^3.1.0",
+        "blade-formatter": "^1.41.1",
+        "tailwindcss": "^3.4.13",
+        "vite": "^6.0.11"
+    }
+}
