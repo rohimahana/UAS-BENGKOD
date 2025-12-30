@@ -1,249 +1,161 @@
-<x-layouts.app title="Dokter Dashboard - Poliklinik">
-    @push('styles')
-        <style>
-            .welcome-card {
-                background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
-                color: white;
-                border-radius: 15px;
-                border: none;
-                margin-bottom: 20px;
-            }
+<x-layouts.app title="Dashboard Dokter - Poliklinik">
+    @php
+        $user = Auth::user();
 
-            .stats-card {
-                border-radius: 15px;
-                border: none;
-                box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
-                transition: transform 0.3s ease;
-            }
+        // Prefer data dari controller (DashboardDokterController), fallback jika belum ada
+        $activeSchedulesCount = $activeSchedulesCount ?? \App\Models\JadwalPeriksa::where('id_dokter', $user->id)->where('aktif', 'Y')->count();
+        $todayQueueCount = $todayQueueCount
+            ?? \App\Models\DaftarPoli::whereHas('jadwalPeriksa', fn($q) => $q->where('id_dokter', $user->id))
+                ->whereDate('created_at', today())
+                ->whereDoesntHave('periksa')
+                ->count();
 
-            .stats-card:hover {
-                transform: translateY(-5px);
-            }
+        $todayExaminations = $todayExaminations
+            ?? \App\Models\Periksa::whereHas('daftarPoli.jadwalPeriksa', fn($q) => $q->where('id_dokter', $user->id))
+                ->whereDate('created_at', today())
+                ->count();
 
-            .small-box {
-                border-radius: 15px;
-                position: relative;
-                overflow: hidden;
-            }
+        $totalExaminations = $totalExaminations
+            ?? \App\Models\Periksa::whereHas('daftarPoli.jadwalPeriksa', fn($q) => $q->where('id_dokter', $user->id))
+                ->count();
 
-            .small-box .icon {
-                transition: all 0.3s ease;
-            }
+        $recentRegistrations = $recentRegistrations
+            ?? \App\Models\DaftarPoli::with(['pasien', 'jadwalPeriksa.poli'])
+                ->whereHas('jadwalPeriksa', fn($q) => $q->where('id_dokter', $user->id))
+                ->orderByDesc('created_at')
+                ->limit(5)
+                ->get();
 
-            .small-box:hover .icon {
-                transform: scale(1.1);
-            }
+        $todayLabel = now()->locale('id')->isoFormat('dddd, D MMMM YYYY');
+    @endphp
 
-            .content-header h1 {
-                color: #495057;
-                font-weight: 600;
-            }
+    <main class="px-3 px-lg-4 py-4">
+        <div class="mx-auto max-w-6xl">
+            <!-- Hero -->
+            <div class="rounded-3xl border border-slate-200 shadow-sm overflow-hidden"
+                style="background: linear-gradient(135deg, rgba(146,168,209,.28) 0%, rgba(247,202,201,.22) 100%);">
+                <div class="p-6 sm:p-8">
+                    <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                        <div>
+                            <div class="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold badge-brand">
+                                <i class="fa-solid fa-stethoscope"></i>
+                                Dokter
+                            </div>
+                            <h1 class="mt-3 text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
+                                Halo, Dr. {{ $user->nama ?? 'Dokter' }}
+                            </h1>
+                            <p class="mt-2 text-sm sm:text-base text-slate-700/90 max-w-2xl">
+                                Kelola jadwal praktik, antrian pasien, dan riwayat pemeriksaan. {{ $todayLabel }}
+                            </p>
+                        </div>
 
-            .breadcrumb {
-                background: transparent;
-            }
-
-            .card {
-                border-radius: 15px;
-                border: none;
-                box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
-            }
-
-            .card-header {
-                background: #f8f9fa;
-                border-bottom: 1px solid #dee2e6;
-                border-radius: 15px 15px 0 0 !important;
-            }
-        </style>
-    @endpush
-
-    <!-- Content Header -->
-    <div class="content-header">
-        <div class="container-fluid">
-            <div class="row mb-2">
-                <div class="col-sm-6">
-                    <h1 class="m-0">
-                        <i class="fas fa-user-md mr-2"></i>Dashboard Dokter
-                    </h1>
+                        <div class="flex flex-wrap gap-2">
+                            <a href="{{ route('dokter.jadwal-periksa.create') }}" class="inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-sm font-semibold btn-brand ring-brand shadow-sm">
+                                <i class="fa-solid fa-calendar-plus"></i> Jadwal Baru
+                            </a>
+                            <a href="{{ route('dokter.periksa-pasien.index') }}" class="inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-sm font-semibold bg-white border border-slate-200 text-slate-700 shadow-sm hover:bg-slate-50">
+                                <i class="fa-solid fa-user-check text-brand"></i> Periksa Pasien
+                            </a>
+                        </div>
+                    </div>
                 </div>
-                <div class="col-sm-6">
-                    <ol class="breadcrumb float-sm-right">
-                        <li class="breadcrumb-item active">
-                            <i class="fas fa-home mr-1"></i>Dashboard
-                        </li>
-                    </ol>
+
+                <div class="grid grid-cols-1 gap-3 border-t border-slate-200/70 bg-white/70 p-4 sm:grid-cols-3">
+                    <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                        <div class="text-xs font-semibold text-slate-500">Jadwal aktif</div>
+                        <div class="mt-1 text-2xl font-bold text-slate-900">{{ $activeSchedulesCount }}</div>
+                    </div>
+                    <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                        <div class="text-xs font-semibold text-slate-500">Antrian menunggu hari ini</div>
+                        <div class="mt-1 text-2xl font-bold text-slate-900">{{ $todayQueueCount }}</div>
+                    </div>
+                    <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                        <div class="text-xs font-semibold text-slate-500">Pemeriksaan hari ini</div>
+                        <div class="mt-1 text-2xl font-bold text-slate-900">{{ $todayExaminations }}</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stats -->
+            <div class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <a href="{{ route('dokter.jadwal-periksa.index') }}" class="group rounded-3xl border border-slate-200 bg-white p-5 shadow-sm hover:shadow-md transition">
+                    <div class="flex items-start justify-between">
+                        <div>
+                            <div class="text-xs font-semibold text-slate-500">Semua jadwal</div>
+                            <div class="mt-2 text-3xl font-bold tracking-tight text-slate-900">{{ \App\Models\JadwalPeriksa::where('id_dokter', $user->id)->count() }}</div>
+                        </div>
+                        <div class="sidebar-icon group-hover:ring-2 group-hover:ring-[var(--brand-ring)]">
+                            <i class="fa-solid fa-calendar-check text-brand"></i>
+                        </div>
+                    </div>
+                    <div class="mt-4 text-xs text-slate-600">Kelola hari & jam praktik</div>
+                </a>
+
+                <a href="{{ route('dokter.periksa-pasien.index') }}" class="group rounded-3xl border border-slate-200 bg-white p-5 shadow-sm hover:shadow-md transition">
+                    <div class="flex items-start justify-between">
+                        <div>
+                            <div class="text-xs font-semibold text-slate-500">Total pemeriksaan</div>
+                            <div class="mt-2 text-3xl font-bold tracking-tight text-slate-900">{{ $totalExaminations }}</div>
+                        </div>
+                        <div class="sidebar-icon group-hover:ring-2 group-hover:ring-[var(--brand-ring)]">
+                            <i class="fa-solid fa-notes-medical text-brand"></i>
+                        </div>
+                    </div>
+                    <div class="mt-4 text-xs text-slate-600">Semua catatan pemeriksaan</div>
+                </a>
+
+                <a href="{{ route('dokter.riwayat-pasien.index') }}" class="group rounded-3xl border border-slate-200 bg-white p-5 shadow-sm hover:shadow-md transition">
+                    <div class="flex items-start justify-between">
+                        <div>
+                            <div class="text-xs font-semibold text-slate-500">Riwayat pasien</div>
+                            <div class="mt-2 text-3xl font-bold tracking-tight text-slate-900">{{ $totalExaminations }}</div>
+                        </div>
+                        <div class="sidebar-icon group-hover:ring-2 group-hover:ring-[var(--brand-ring)]">
+                            <i class="fa-solid fa-clock-rotate-left text-brand"></i>
+                        </div>
+                    </div>
+                    <div class="mt-4 text-xs text-slate-600">Cari data kunjungan pasien</div>
+                </a>
+            </div>
+
+            <!-- Recent registrations -->
+            <div class="mt-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                <div class="flex items-center justify-between">
+                    <h2 class="text-base font-bold text-slate-900">Pendaftaran terbaru</h2>
+                    <a href="{{ route('dokter.periksa-pasien.index') }}" class="text-xs font-semibold text-brand hover:underline">Buka antrian</a>
+                </div>
+
+                <div class="mt-4 grid gap-3 md:grid-cols-2">
+                    @forelse ($recentRegistrations as $row)
+                        @php
+                            $poli = $row->jadwalPeriksa?->poli?->nama_poli ?? $row->jadwalPeriksa?->dokter?->poli?->nama_poli ?? 'Poli';
+                            $pasien = $row->pasien?->nama ?? 'Pasien';
+                            $status = $row->periksa ? 'Selesai' : 'Menunggu';
+                        @endphp
+                        <div class="rounded-2xl border border-slate-200 p-4 hover:bg-slate-50">
+                            <div class="flex items-start justify-between" style="gap:12px;">
+                                <div style="min-width:0;">
+                                    <div class="text-sm font-semibold text-slate-900 truncate">{{ $pasien }}</div>
+                                    <div class="mt-1 text-xs text-slate-600 truncate">{{ $poli }} • No Antrian {{ $row->no_antrian }}</div>
+                                    <div class="mt-2 text-xs text-slate-500">{{ $row->created_at?->format('d/m/Y H:i') }}</div>
+                                </div>
+                                <span class="rounded-full px-3 py-1 text-[11px] font-semibold {{ $status === 'Selesai' ? 'badge-brand' : 'bg-amber-50 text-amber-700 border border-amber-200' }}">
+                                    {{ $status }}
+                                </span>
+                            </div>
+                        </div>
+                    @empty
+                        <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600 md:col-span-2">
+                            Belum ada pendaftaran pasien.
+                        </div>
+                    @endforelse
+                </div>
+
+                <div class="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
+                    <i class="fa-solid fa-circle-info mr-2 text-brand"></i>
+                    Untuk memulai pemeriksaan, buka menu <span class="font-semibold">Periksa Pasien</span> dan pilih pasien yang menunggu.
                 </div>
             </div>
         </div>
-    </div>
-
-    <!-- Main content -->
-    <section class="content">
-        <div class="container-fluid">
-            <!-- Welcome Card -->
-            <div class="row">
-                <div class="col-12">
-                    <div class="card welcome-card">
-                        <div class="card-body">
-                            <div class="row align-items-center">
-                                <div class="col-md-8">
-                                    <h3 class="mb-3">
-                                        <i class="fas fa-stethoscope mr-2"></i>
-                                        Selamat Datang, Dr. {{ Auth::user()->nama }}!
-                                    </h3>
-                                    <p class="mb-0">
-                                        Anda login sebagai <strong>Dokter</strong>.
-                                        Kelola jadwal praktik dan riwayat pemeriksaan pasien Anda.
-                                    </p>
-                                </div>
-                                <div class="col-md-4 text-center">
-                                    <i class="fas fa-user-md fa-5x opacity-75"></i>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Statistics Cards -->
-            <div class="row">
-                <div class="col-lg-4 col-6">
-                    <div class="small-box bg-info">
-                        <div class="inner">
-                            <h3>{{ \App\Models\JadwalPeriksa::where('id_dokter', Auth::id())->count() }}</h3>
-                            <p>Jadwal Periksa</p>
-                        </div>
-                        <div class="icon">
-                            <i class="fas fa-calendar-check"></i>
-                        </div>
-                        <a href="{{ route('dokter.jadwal-periksa.index') }}" class="small-box-footer">
-                            Info lebih lanjut <i class="fas fa-arrow-circle-right"></i>
-                        </a>
-                    </div>
-                </div>
-
-                <div class="col-lg-4 col-6">
-                    <div class="small-box bg-success">
-                        <div class="inner">
-                            <h3>{{ \App\Models\DaftarPoli::whereHas('jadwalPeriksa', function ($q) {$q->where('id_dokter', Auth::id());})->whereDate('created_at', today())->count() }}
-                            </h3>
-                            <p>Pasien Hari Ini</p>
-                        </div>
-                        <div class="icon">
-                            <i class="fas fa-user-injured"></i>
-                        </div>
-                        <a href="{{ route('dokter.periksa-pasien.index') }}" class="small-box-footer">
-                            Info lebih lanjut <i class="fas fa-arrow-circle-right"></i>
-                        </a>
-                    </div>
-                </div>
-
-                <div class="col-lg-4 col-6">
-                    <div class="small-box bg-warning">
-                        <div class="inner">
-                            <h3>{{ \App\Models\Periksa::whereHas('daftarPoli.jadwalPeriksa', function ($q) {$q->where('id_dokter', Auth::id());})->count() }}
-                            </h3>
-                            <p>Total Riwayat Pasien</p>
-                        </div>
-                        <div class="icon">
-                            <i class="fas fa-history"></i>
-                        </div>
-                        <a href="{{ route('dokter.riwayat-pasien.index') }}" class="small-box-footer">
-                            Info lebih lanjut <i class="fas fa-arrow-circle-right"></i>
-                        </a>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Management Cards -->
-            <div class="row">
-                <div class="col-md-6">
-                    <div class="card stats-card">
-                        <div class="card-header">
-                            <h3 class="card-title">
-                                <i class="fas fa-calendar-alt mr-2"></i>Jadwal Praktik
-                            </h3>
-                        </div>
-                        <div class="card-body">
-                            <div class="list-group list-group-flush">
-                                <div
-                                    class="list-group-item d-flex justify-content-between align-items-center border-0 px-0">
-                                    <span><i class="fas fa-clock text-info mr-2"></i>Jadwal Aktif</span>
-                                    <span class="badge badge-info badge-pill">
-                                        {{ \App\Models\JadwalPeriksa::where('id_dokter', Auth::id())->where('aktif', 'Y')->count() }}
-                                    </span>
-                                </div>
-                                <div
-                                    class="list-group-item d-flex justify-content-between align-items-center border-0 px-0">
-                                    <span><i class="fas fa-calendar-times text-warning mr-2"></i>Jadwal Non-Aktif</span>
-                                    <span class="badge badge-warning badge-pill">
-                                        {{ \App\Models\JadwalPeriksa::where('id_dokter', Auth::id())->where('aktif', 'T')->count() }}
-                                    </span>
-                                </div>
-                                <div
-                                    class="list-group-item d-flex justify-content-between align-items-center border-0 px-0">
-                                    <span><i class="fas fa-users text-success mr-2"></i>Pasien Menunggu</span>
-                                    <span class="badge badge-success badge-pill">
-                                        {{ \App\Models\DaftarPoli::whereHas('jadwalPeriksa', function ($q) {$q->where('id_dokter', Auth::id());})->whereDoesntHave('periksa')->count() }}
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="col-md-6">
-                    <div class="card stats-card">
-                        <div class="card-header">
-                            <h3 class="card-title">
-                                <i class="fas fa-clipboard-list mr-2"></i>Menu Utama Dokter
-                            </h3>
-                        </div>
-                        <div class="card-body">
-                            <div class="list-group list-group-flush">
-                                <a href="{{ route('dokter.jadwal-periksa.index') }}"
-                                    class="list-group-item list-group-item-action d-flex justify-content-between align-items-center border-0 px-0 py-3">
-                                    <div>
-                                        <i class="fas fa-calendar-plus text-primary mr-3"></i>
-                                        <span class="font-weight-medium">Kelola Jadwal Praktik</span>
-                                        <br>
-                                        <small class="text-muted">Atur waktu dan status ketersediaan praktik</small>
-                                    </div>
-                                    <i class="fas fa-chevron-right text-muted"></i>
-                                </a>
-
-                                <a href="{{ route('dokter.periksa-pasien.index') }}"
-                                    class="list-group-item list-group-item-action d-flex justify-content-between align-items-center border-0 px-0 py-3">
-                                    <div>
-                                        <i class="fas fa-user-check text-success mr-3"></i>
-                                        <span class="font-weight-medium">Periksa Pasien</span>
-                                        <br>
-                                        <small class="text-muted">Melakukan pemeriksaan dan diagnosa pasien</small>
-                                    </div>
-                                    <i class="fas fa-chevron-right text-muted"></i>
-                                </a>
-
-                                <a href="{{ route('dokter.riwayat-pasien.index') }}"
-                                    class="list-group-item list-group-item-action d-flex justify-content-between align-items-center border-0 px-0 py-3">
-                                    <div>
-                                        <i class="fas fa-file-medical text-info mr-3"></i>
-                                        <span class="font-weight-medium">Riwayat Pemeriksaan</span>
-                                        <br>
-                                        <small class="text-muted">Lihat catatan medis dan hasil pemeriksaan</small>
-                                    </div>
-                                    <i class="fas fa-chevron-right text-muted"></i>
-                                </a>
-                            </div>
-                        </div>
-                        <div class="card-footer bg-light text-center">
-                            <small class="text-muted">
-                                <i class="fas fa-info-circle mr-1"></i>
-                                Klik menu untuk mengakses fitur
-                            </small>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
+    </main>
 </x-layouts.app>

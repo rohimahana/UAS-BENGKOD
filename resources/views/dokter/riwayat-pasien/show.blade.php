@@ -1,149 +1,171 @@
-<x-layouts.app title="Detail Riwayat Pasien">
-    <div class="container-fluid px-4 mt-4">
-        <div class="row">
-            <div class="col-lg-10 offset-lg-1">
-                <div class="d-flex justify-content-between align-items-center mb-4">
-                    <h2><i class="fas fa-clipboard-list"></i> Detail Riwayat Pemeriksaan</h2>
-                    <a href="{{ route('dokter.riwayat-pasien.index') }}" class="btn btn-secondary">
-                        <i class="fas fa-arrow-left"></i> Kembali
+<x-layouts.app title="Detail Pemeriksaan">
+    @php
+        $daftar = $periksa->daftarPoli;
+        $pasien = $daftar->pasien ?? null;
+
+        $biayaPeriksa = (int) ($periksa->biaya_periksa ?? 0);
+        $detail = $periksa->detailPeriksa ?? collect();
+        $totalObat = $detail->sum(function ($d) {
+            $harga = (int) ($d->obat->harga ?? 0);
+            $qty = max((int) ($d->jumlah ?? 1), 1);
+            return $harga * $qty;
+        });
+        $totalBiaya = $biayaPeriksa + $totalObat;
+
+        $tglPeriksa = $periksa->tgl_periksa ? \Carbon\Carbon::parse($periksa->tgl_periksa)->format('d/m/Y H:i') : '-';
+    @endphp
+
+    <div class="p-4 sm:p-6">
+        <div class="mx-auto max-w-6xl">
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                    <h1 class="text-2xl font-semibold tracking-tight text-slate-900">
+                        <i class="fa-solid fa-file-waveform text-brand mr-2"></i>Detail Pemeriksaan
+                    </h1>
+                    <p class="mt-1 text-sm text-slate-600">
+                        Ringkasan hasil pemeriksaan, obat, dan total biaya.
+                    </p>
+                </div>
+
+                <div class="flex flex-wrap items-center gap-2">
+                    <a href="{{ route('dokter.riwayat-pasien.index') }}"
+                        class="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50">
+                        <i class="fa-solid fa-arrow-left text-xs"></i>
+                        Kembali
                     </a>
                 </div>
+            </div>
 
-                <!-- Informasi Pasien -->
-                <div class="card mb-3">
-                    <div class="card-header bg-primary text-white">
-                        <h5 class="mb-0"><i class="fas fa-user-injured"></i> Informasi Pasien</h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="row">
-                            <div class="col-md-6">
-                                <p><strong>Nama Pasien:</strong> {{ $periksa->daftarPoli->pasien->nama ?? '-' }}</p>
-                                <p><strong>No. Rekam Medis:</strong>
-                                    <span
-                                        class="badge badge-info">{{ $periksa->daftarPoli->pasien->no_rm ?? '-' }}</span>
-                                </p>
-                                <p><strong>No. Antrian:</strong>
-                                    <span
-                                        class="badge badge-primary">{{ $periksa->daftarPoli->no_antrian ?? '-' }}</span>
-                                </p>
-                            </div>
-                            <div class="col-md-6">
-                                <p><strong>Poli:</strong>
-                                    {{ $periksa->daftarPoli->jadwalPeriksa->dokter->poli->nama_poli ?? '-' }}</p>
-                                <p><strong>Dokter:</strong> Dr.
-                                    {{ $periksa->daftarPoli->jadwalPeriksa->dokter->nama ?? '-' }}</p>
-                                <p><strong>Tanggal Periksa:</strong>
-                                    {{ \Carbon\Carbon::parse($periksa->tgl_periksa)->format('d/m/Y H:i') }} WIB</p>
+            <!-- Top cards -->
+            <div class="mt-6 grid gap-4 md:grid-cols-3">
+                <div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm md:col-span-2">
+                    <div class="flex items-start justify-between gap-4">
+                        <div>
+                            <div class="text-xs font-semibold text-slate-500">Pasien</div>
+                            <div class="mt-2 text-xl font-bold text-slate-900">{{ $pasien->nama ?? '-' }}</div>
+                            <div class="mt-1 text-sm text-slate-600">
+                                <span class="inline-flex items-center gap-2">
+                                    <i class="fa-solid fa-hashtag text-slate-400 text-xs"></i>
+                                    Antrian <span class="font-semibold text-slate-900">#{{ $daftar->no_antrian ?? '-' }}</span>
+                                </span>
                             </div>
                         </div>
-                        <hr>
-                        <p><strong>Keluhan:</strong></p>
-                        <p class="text-muted">{{ $periksa->daftarPoli->keluhan ?? '-' }}</p>
-                    </div>
-                </div>
 
-                <!-- Catatan Dokter -->
-                <div class="card mb-3">
-                    <div class="card-header bg-success text-white">
-                        <h5 class="mb-0"><i class="fas fa-notes-medical"></i> Catatan Dokter</h5>
+                        <span class="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold badge-brand">
+                            <i class="fa-solid fa-circle-check text-[10px]"></i>
+                            Selesai
+                        </span>
                     </div>
-                    <div class="card-body">
-                        <p class="mb-0">{{ $periksa->catatan ?: 'Tidak ada catatan' }}</p>
-                    </div>
-                </div>
 
-                <!-- Obat yang Diresepkan -->
-                <div class="card mb-3">
-                    <div class="card-header bg-info text-white">
-                        <h5 class="mb-0"><i class="fas fa-pills"></i> Obat yang Diresepkan</h5>
-                    </div>
-                    <div class="card-body">
-                        @if ($periksa->detailPeriksa && $periksa->detailPeriksa->count() > 0)
-                            <div class="table-responsive">
-                                <table class="table table-bordered table-sm">
-                                    <thead class="thead-light">
-                                        <tr>
-                                            <th width="50">#</th>
-                                            <th>Nama Obat</th>
-                                            <th width="150">Harga</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        @php $totalObat = 0; @endphp
-                                        @foreach ($periksa->detailPeriksa as $index => $detail)
-                                            @php $totalObat += $detail->obat->harga; @endphp
-                                            <tr>
-                                                <td class="text-center">{{ $index + 1 }}</td>
-                                                <td>{{ $detail->obat->nama_obat ?? '-' }}</td>
-                                                <td class="text-right">Rp
-                                                    {{ number_format($detail->obat->harga, 0, ',', '.') }}</td>
-                                            </tr>
-                                        @endforeach
-                                        <tr class="table-active">
-                                            <td colspan="2" class="text-right"><strong>Total Harga Obat:</strong>
-                                            </td>
-                                            <td class="text-right"><strong>Rp
-                                                    {{ number_format($totalObat, 0, ',', '.') }}</strong></td>
-                                        </tr>
-                                    </tbody>
-                                </table>
+                    <div class="mt-5 grid gap-3 sm:grid-cols-2">
+                        <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                            <div class="text-xs font-semibold text-slate-500">Poli</div>
+                            <div class="mt-1 font-semibold text-slate-900">
+                                {{ $daftar->jadwalPeriksa->dokter->poli->nama_poli ?? '-' }}
                             </div>
-                        @else
-                            <p class="text-muted mb-0">Tidak ada obat yang diresepkan</p>
-                        @endif
+                            <div class="mt-1 text-xs text-slate-600">
+                                Dokter: {{ $daftar->jadwalPeriksa->dokter->nama ?? '-' }}
+                            </div>
+                        </div>
+
+                        <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                            <div class="text-xs font-semibold text-slate-500">Tanggal Periksa</div>
+                            <div class="mt-1 font-semibold text-slate-900">{{ $tglPeriksa }}</div>
+                            <div class="mt-1 text-xs text-slate-600">
+                                Jadwal: {{ $daftar->jadwalPeriksa->hari ?? '-' }}
+                                {{ $daftar->jadwalPeriksa->jam_mulai ? date('H:i', strtotime($daftar->jadwalPeriksa->jam_mulai)) : '-' }}
+                                -
+                                {{ $daftar->jadwalPeriksa->jam_selesai ? date('H:i', strtotime($daftar->jadwalPeriksa->jam_selesai)) : '-' }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-4 rounded-2xl border border-slate-200 p-4">
+                        <div class="text-xs font-semibold text-slate-500">Keluhan</div>
+                        <div class="mt-1 text-sm text-slate-800">{{ $daftar->keluhan ?? '-' }}</div>
+                    </div>
+
+                    <div class="mt-3 rounded-2xl border border-slate-200 p-4">
+                        <div class="text-xs font-semibold text-slate-500">Catatan Dokter</div>
+                        <div class="mt-1 text-sm text-slate-800 whitespace-pre-line">{{ $periksa->catatan ?? '-' }}</div>
                     </div>
                 </div>
 
-                <!-- Total Biaya -->
-                <div class="card mb-3">
-                    <div class="card-body text-center bg-light">
-                        <h5 class="card-title mb-3">Total Biaya Pemeriksaan</h5>
-                        <h2 class="text-success mb-0">
-                            <i class="fas fa-money-bill-wave"></i>
-                            Rp {{ number_format($periksa->biaya_periksa, 0, ',', '.') }}
-                        </h2>
-                        <small class="text-muted">Sudah termasuk biaya konsultasi dan obat</small>
+                <div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                    <div class="text-xs font-semibold text-slate-500">Total Biaya</div>
+                    <div class="mt-2 text-3xl font-extrabold text-slate-900">Rp {{ number_format($totalBiaya, 0, ',', '.') }}</div>
+
+                    <div class="mt-4 grid gap-2 text-sm">
+                        <div class="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                            <span class="text-slate-600">Biaya Periksa</span>
+                            <span class="font-semibold text-slate-900">Rp {{ number_format($biayaPeriksa, 0, ',', '.') }}</span>
+                        </div>
+                        <div class="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                            <span class="text-slate-600">Biaya Obat</span>
+                            <span class="font-semibold text-slate-900">Rp {{ number_format($totalObat, 0, ',', '.') }}</span>
+                        </div>
+                    </div>
+
+                    <div class="mt-4 text-xs text-slate-500">
+                        Total = biaya periksa + total obat (harga × jumlah).
+                    </div>
+                </div>
+            </div>
+
+            <!-- Obat -->
+            <div class="mt-6 rounded-3xl border border-slate-200 bg-white shadow-sm">
+                <div class="border-b border-slate-200 px-6 py-4">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <div class="text-sm font-semibold text-slate-900">Obat & Resep</div>
+                            <div class="text-xs text-slate-500">Daftar obat yang diberikan pada pemeriksaan ini.</div>
+                        </div>
+                        <span class="inline-flex items-center rounded-full px-2 py-1 text-xs font-semibold badge-brand">
+                            {{ $detail->count() }} item
+                        </span>
                     </div>
                 </div>
 
-                <!-- Action Buttons -->
-                <div class="row">
-                    <div class="col-12">
-                        <a href="{{ route('dokter.riwayat-pasien.index') }}" class="btn btn-secondary">
-                            <i class="fas fa-arrow-left"></i> Kembali
-                        </a>
-                        <button onclick="window.print()" class="btn btn-primary">
-                            <i class="fas fa-print"></i> Cetak
-                        </button>
-                    </div>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full text-sm">
+                        <thead class="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-600">
+                            <tr>
+                                <th class="px-6 py-3 text-left">Obat</th>
+                                <th class="px-6 py-3 text-left">Jumlah</th>
+                                <th class="px-6 py-3 text-left">Harga</th>
+                                <th class="px-6 py-3 text-left">Subtotal</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-200">
+                            @forelse ($detail as $d)
+                                @php
+                                    $namaObat = $d->obat->nama_obat ?? '-';
+                                    $harga = (int) ($d->obat->harga ?? 0);
+                                    $qty = max((int) ($d->jumlah ?? 1), 1);
+                                    $sub = $harga * $qty;
+                                @endphp
+                                <tr class="bg-white hover:bg-slate-50">
+                                    <td class="px-6 py-4 font-semibold text-slate-900">{{ $namaObat }}</td>
+                                    <td class="px-6 py-4 text-slate-700">{{ $qty }}</td>
+                                    <td class="px-6 py-4 text-slate-700">Rp {{ number_format($harga, 0, ',', '.') }}</td>
+                                    <td class="px-6 py-4 font-semibold text-slate-900">Rp {{ number_format($sub, 0, ',', '.') }}</td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="4" class="px-6 py-10 text-center text-slate-500">
+                                        Tidak ada obat pada pemeriksaan ini.
+                                    </td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="flex items-center justify-end gap-3 border-t border-slate-200 px-6 py-4 text-sm">
+                    <span class="text-slate-600">Total Obat</span>
+                    <span class="font-semibold text-slate-900">Rp {{ number_format($totalObat, 0, ',', '.') }}</span>
                 </div>
             </div>
         </div>
     </div>
-
-    @push('styles')
-        <style>
-            @media print {
-
-                .main-sidebar,
-                .main-header,
-                .content-header,
-                .btn,
-                .card-header {
-                    display: none !important;
-                }
-
-                .content-wrapper {
-                    margin: 0 !important;
-                    padding: 0 !important;
-                }
-
-                .card {
-                    border: 1px solid #ddd !important;
-                    box-shadow: none !important;
-                    page-break-inside: avoid;
-                }
-            }
-        </style>
-    @endpush
 </x-layouts.app>

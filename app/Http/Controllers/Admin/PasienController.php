@@ -7,6 +7,7 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Validation\ValidationException;
@@ -140,7 +141,7 @@ class PasienController extends Controller
             $no_rm = date('Ym') . $newNumber;
 
             // Create new patient
-            $patient = User::create([
+            $patientData = [
                 'nama' => $validatedData['nama'],
                 'alamat' => $validatedData['alamat'],
                 'no_ktp' => $validatedData['no_ktp'],
@@ -149,8 +150,14 @@ class PasienController extends Controller
                 'password' => Hash::make($validatedData['password']),
                 'no_rm' => $no_rm,
                 'role' => 'pasien',
-                'email_verified_at' => now(), // Auto-verify patient accounts
-            ]);
+            ];
+
+            // Kolom email_verified_at tidak selalu ada di semua DB/migrasi
+            if (Schema::hasColumn('users', 'email_verified_at')) {
+                $patientData['email_verified_at'] = now();
+            }
+
+            $patient = User::create($patientData);
 
             Log::info('New patient created successfully', [
                 'patient_id' => $patient->id,

@@ -26,8 +26,7 @@ class DashboardAdminController extends Controller
      */
     public function index(): RedirectResponse
     {
-        return redirect()->route('admin.dashboard')
-            ->with('info', 'Selamat datang di panel administrasi');
+        return redirect()->route('admin.dashboard');
     }
 
     /**

@@ -1,99 +1,128 @@
 <x-layouts.app title="Tambah Obat">
-    <div class="container-fluid px-4 mt-4">
-        <div class="row">
-            <div class="col-lg-8 offset-lg-2">
-                <h1 class="mb-4">Tambah Obat</h1>
+    @push('styles')
+    <style>
+        .focus-brand:focus { outline: none !important; box-shadow: 0 0 0 4px rgba(63, 95, 168, .28) !important; }
+        .is-invalid { border-color: #fb7185 !important; box-shadow: 0 0 0 4px rgba(251, 113, 133, .18) !important; }
+        .help-muted { color: #64748b; }
+    </style>
+@endpush
 
-                <div class="card">
-                    <div class="card-body">
-                        <form action="{{ route('admin.obat.store') }}" method="POST" id="obatForm">
-                            @csrf
+    <div class="p-4 sm:p-6">
+        <div class="mx-auto max-w-4xl">
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                    <h1 class="text-2xl font-semibold tracking-tight text-slate-900">Tambah Obat</h1>
+                    <p class="mt-1 text-sm text-slate-600">
+                        Tambahkan obat baru beserta informasi harga dan stok awal.
+                    </p>
+                </div>
 
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <div class="form-group mb-3">
-                                        <label for="nama_obat" class="form-label">Nama Obat <span
-                                                class="text-danger">*</span></label>
-                                        <input type="text"
-                                            class="form-control @error('nama_obat') is-invalid @enderror" id="nama_obat"
-                                            name="nama_obat" value="{{ old('nama_obat') }}" required>
-                                        @error('nama_obat')
-                                            <div class="invalid-feedback">{{ $message }}</div>
-                                        @enderror
-                                    </div>
-                                </div>
+                <a href="{{ route('admin.obat.index') }}"
+                    class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50">
+                    <i class="fa-solid fa-arrow-left text-xs text-slate-500"></i>
+                    Kembali
+                </a>
+            </div>
 
-                                <div class="col-md-6">
-                                    <div class="form-group mb-3">
-                                        <label for="kemasan" class="form-label">Kemasan <span
-                                                class="text-danger">*</span></label>
-                                        <input type="text" id="kemasan" name="kemasan"
-                                            class="form-control @error('kemasan') is-invalid @enderror"
-                                            value="{{ old('kemasan') }}" placeholder="Contoh: Strip, Botol, Tube"
-                                            required>
-                                        @error('kemasan')
-                                            <div class="invalid-feedback">{{ $message }}</div>
-                                        @enderror
-                                    </div>
-                                </div>
+            <div class="mt-6 rounded-3xl border border-slate-200 bg-white shadow-sm">
+                <form action="{{ route('admin.obat.store') }}" method="POST" id="obatForm">
+                    @csrf
+
+                    <div class="border-b border-slate-200 p-5">
+                        <div class="text-sm font-semibold text-slate-900">Informasi Obat</div>
+                        <p class="mt-1 text-sm text-slate-600">Isi nama obat, kemasan, dan harga.</p>
+                    </div>
+
+                    <div class="grid gap-5 p-5 sm:grid-cols-2">
+                        <div>
+                            <label for="nama_obat" class="text-sm font-semibold text-slate-700">Nama Obat <span class="text-rose-600">*</span></label>
+                            <input id="nama_obat" name="nama_obat" type="text" required
+                                value="{{ old('nama_obat') }}"
+                                placeholder="Contoh: Paracetamol 500mg"
+                                class="focus-brand mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 @error('nama_obat') is-invalid @enderror">
+                            @error('nama_obat')
+                                <div class="mt-2 text-sm font-semibold text-rose-600">{{ $message }}</div>
+                            @enderror
+                        </div>
+
+                        <div>
+                            <label for="kemasan" class="text-sm font-semibold text-slate-700">Kemasan <span class="text-rose-600">*</span></label>
+                            <input id="kemasan" name="kemasan" type="text" required
+                                value="{{ old('kemasan') }}"
+                                placeholder="Contoh: Strip, Botol, Tube"
+                                class="focus-brand mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 @error('kemasan') is-invalid @enderror">
+                            @error('kemasan')
+                                <div class="mt-2 text-sm font-semibold text-rose-600">{{ $message }}</div>
+                            @enderror
+                        </div>
+
+                        <div class="sm:col-span-2">
+                            <label for="harga" class="text-sm font-semibold text-slate-700">Harga (Rp) <span class="text-rose-600">*</span></label>
+                            <input id="harga" name="harga" type="number" required min="0" step="1"
+                                value="{{ old('harga') }}"
+                                placeholder="Masukkan angka tanpa titik/koma"
+                                class="focus-brand mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 @error('harga') is-invalid @enderror">
+                            @error('harga')
+                                <div class="mt-2 text-sm font-semibold text-rose-600">{{ $message }}</div>
+                            @enderror
+                        </div>
+                    </div>
+
+                    <div class="border-t border-slate-200 p-5">
+                        <div class="flex items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                            <div class="mt-0.5 text-slate-500"><i class="fa-solid fa-circle-info"></i></div>
+                            <div>
+                                <div class="text-sm font-semibold text-slate-900">Manajemen Stok</div>
+                                <p class="mt-1 text-sm text-slate-600">
+                                    Atur stok awal dan stok minimum untuk monitoring stok menipis.
+                                </p>
                             </div>
+                        </div>
 
-                            <div class="form-group mb-3">
-                                <label for="harga" class="form-label">Harga <span
-                                        class="text-danger">*</span></label>
-                                <input type="number" id="harga" name="harga"
-                                    class="form-control @error('harga') is-invalid @enderror"
-                                    value="{{ old('harga') }}" min="0" step="1" required>
-                                @error('harga')
-                                    <div class="invalid-feedback">{{ $message }}</div>
+                        <div class="mt-5 grid gap-5 sm:grid-cols-2">
+                            <div>
+                                <label for="stok" class="text-sm font-semibold text-slate-700">Stok Awal</label>
+                                <input id="stok" name="stok" type="number" min="0" max="10000"
+                                    value="{{ old('stok', 0) }}"
+                                    class="focus-brand mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 @error('stok') is-invalid @enderror">
+                                <div class="mt-2 text-xs help-muted">Rentang 0–10000.</div>
+                                @error('stok')
+                                    <div class="mt-2 text-sm font-semibold text-rose-600">{{ $message }}</div>
                                 @enderror
                             </div>
 
-                            <div class="alert alert-info">
-                                <i class="fas fa-info-circle"></i> <strong>Manajemen Stok Obat</strong><br>
-                                Atur stok awal dan stok minimum untuk monitoring otomatis.
+                            <div>
+                                <label for="stok_minimum" class="text-sm font-semibold text-slate-700">Stok Minimum</label>
+                                <input id="stok_minimum" name="stok_minimum" type="number" min="1" max="100"
+                                    value="{{ old('stok_minimum', 10) }}"
+                                    class="focus-brand mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 @error('stok_minimum') is-invalid @enderror">
+                                <div class="mt-2 text-xs help-muted">Warning ketika stok ≤ nilai ini (1–100).</div>
+                                @error('stok_minimum')
+                                    <div class="mt-2 text-sm font-semibold text-rose-600">{{ $message }}</div>
+                                @enderror
                             </div>
-
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <div class="form-group mb-3">
-                                        <label for="stok" class="form-label">Stok Awal</label>
-                                        <input type="number" id="stok" name="stok"
-                                            class="form-control @error('stok') is-invalid @enderror"
-                                            value="{{ old('stok', 0) }}" min="0" max="10000">
-                                        <small class="text-muted">Jumlah stok obat saat ini (0-10000)</small>
-                                        @error('stok')
-                                            <div class="invalid-feedback">{{ $message }}</div>
-                                        @enderror
-                                    </div>
-                                </div>
-
-                                <div class="col-md-6">
-                                    <div class="form-group mb-3">
-                                        <label for="stok_minimum" class="form-label">Stok Minimum</label>
-                                        <input type="number" id="stok_minimum" name="stok_minimum"
-                                            class="form-control @error('stok_minimum') is-invalid @enderror"
-                                            value="{{ old('stok_minimum', 10) }}" min="1" max="100">
-                                        <small class="text-muted">Batas warning stok menipis (1-100)</small>
-                                        @error('stok_minimum')
-                                            <div class="invalid-feedback">{{ $message }}</div>
-                                        @enderror
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="form-group mb-3">
-                                <button type="button" class="btn btn-success"
-                                    onclick="confirmSubmit('#obatForm', 'Apakah Anda yakin ingin menambahkan obat ini?')">
-                                    <i class="fas fa-save"></i> Simpan
-                                </button>
-                                <a href="{{ route('admin.obat.index') }}" class="btn btn-secondary">
-                                    <i class="fas fa-arrow-left"></i> Kembali
-                                </a>
-                            </div>
-                        </form>
+                        </div>
                     </div>
-                </div>
+
+                    <div class="flex flex-col-reverse gap-3 border-t border-slate-200 p-5 sm:flex-row sm:items-center sm:justify-between">
+                        <div class="text-xs text-slate-500">
+                            Field bertanda <span class="font-semibold text-rose-600">*</span> wajib diisi.
+                        </div>
+
+                        <div class="flex flex-wrap items-center gap-2">
+                            <a href="{{ route('admin.obat.index') }}"
+                                class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                                Batal
+                            </a>
+                            <button type="button"
+                                class="inline-flex items-center gap-2 rounded-xl px-5 py-2 text-sm font-semibold btn-brand shadow-sm ring-brand"
+                                onclick="confirmSubmit('#obatForm', 'Simpan obat baru?', 'Data obat akan ditambahkan ke inventori.')">
+                                <i class="fa-solid fa-floppy-disk text-xs"></i>
+                                Simpan
+                            </button>
+                        </div>
+                    </div>
+                </form>
             </div>
         </div>
     </div>

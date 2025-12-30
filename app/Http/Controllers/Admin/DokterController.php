@@ -8,6 +8,7 @@ use App\Models\Poli;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Validation\ValidationException;
@@ -143,7 +144,7 @@ class DokterController extends Controller
             ]);
 
             // Create new doctor
-            $doctor = User::create([
+            $doctorData = [
                 'nama' => $validatedData['nama'],
                 'alamat' => $validatedData['alamat'],
                 'no_hp' => $validatedData['no_hp'],
@@ -152,8 +153,15 @@ class DokterController extends Controller
                 'email' => $validatedData['email'],
                 'password' => Hash::make($validatedData['password']),
                 'role' => 'dokter',
-                'email_verified_at' => now(), // Auto-verify doctor accounts
-            ]);
+            ];
+
+            // Kolom email_verified_at tidak selalu ada di semua DB/migrasi
+            if (Schema::hasColumn('users', 'email_verified_at')) {
+                $doctorData['email_verified_at'] = now();
+            }
+
+            // Create new doctor
+            $doctor = User::create($doctorData);
 
             Log::info('New doctor created successfully', [
                 'doctor_id' => $doctor->id,

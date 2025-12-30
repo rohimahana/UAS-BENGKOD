@@ -1,442 +1,254 @@
-<x-layouts.app title="Pasien Dashboard - Poliklinik">
-    @push('styles')
-        <style>
-            .welcome-card {
-                background: linear-gradient(135deg, #17a2b8 0%, #20c997 100%);
-                color: white;
-                border-radius: 15px;
-                border: none;
-                margin-bottom: 20px;
-            }
+<x-layouts.app title="Dashboard Pasien - Poliklinik">
+    @php
+        $user = Auth::user();
 
-            .patient-info {
-                background: rgba(255, 255, 255, 0.15);
-                backdrop-filter: blur(10px);
-                border-radius: 10px;
-                padding: 15px;
-                margin-top: 15px;
-                border: 1px solid rgba(255, 255, 255, 0.2);
-            }
+        // Prefer data dari controller (DashboardPasienController), fallback jika belum ada
+        $totalAppointments = $totalAppointments ?? \App\Models\DaftarPoli::where('id_pasien', $user->id)->count();
+        $completedExaminations = $completedExaminations ?? \App\Models\DaftarPoli::where('id_pasien', $user->id)->whereHas('periksa')->count();
+        $pendingAppointments = $pendingAppointments ?? \App\Models\DaftarPoli::where('id_pasien', $user->id)->whereDoesntHave('periksa')->count();
 
-            .stats-card {
-                border-radius: 15px;
-                border: none;
-                box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
-                transition: transform 0.3s ease;
-            }
+        $recentAppointments = $recentAppointments
+            ?? \App\Models\DaftarPoli::with(['jadwalPeriksa.dokter.poli', 'periksa'])
+                ->where('id_pasien', $user->id)
+                ->orderByDesc('created_at')
+                ->limit(5)
+                ->get();
 
-            .stats-card:hover {
-                transform: translateY(-5px);
-            }
+        $upcomingAppointments = $upcomingAppointments
+            ?? \App\Models\DaftarPoli::with(['jadwalPeriksa.dokter.poli'])
+                ->where('id_pasien', $user->id)
+                ->whereDoesntHave('periksa')
+                ->orderByDesc('created_at')
+                ->limit(3)
+                ->get();
 
-            .small-box {
-                border-radius: 15px;
-                position: relative;
-                overflow: hidden;
-            }
+        // Jadwal dokter hari ini (fitur yang berguna untuk pasien)
+        $hariIni = now()->locale('id')->dayName;
+        $jadwalHariIni = \App\Models\JadwalPeriksa::with(['dokter.poli'])
+            ->where('hari', $hariIni)
+            ->where('aktif', 'Y')
+            ->orderBy('jam_mulai', 'asc')
+            ->limit(6)
+            ->get();
 
-            .small-box .icon {
-                transition: all 0.3s ease;
-            }
+        $todayLabel = now()->locale('id')->isoFormat('dddd, D MMMM YYYY');
+    @endphp
 
-            .small-box:hover .icon {
-                transform: scale(1.1);
-            }
+    <main class="px-3 px-lg-4 py-4">
+        <div class="mx-auto max-w-6xl">
+            <!-- Hero -->
+            <div class="rounded-3xl border border-slate-200 shadow-sm overflow-hidden"
+                style="background: linear-gradient(135deg, rgba(146,168,209,.28) 0%, rgba(247,202,201,.22) 100%);">
+                <div class="p-6 sm:p-8">
+                    <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                        <div>
+                            <div class="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold badge-brand">
+                                <i class="fa-solid fa-heart-pulse"></i>
+                                Pasien
+                            </div>
+                            <h1 class="mt-3 text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
+                                Halo, {{ $user->nama ?? 'Pasien' }}
+                            </h1>
+                            <p class="mt-2 text-sm sm:text-base text-slate-700/90 max-w-2xl">
+                                Pantau antrian, daftar poli, dan lihat riwayat kunjungan. {{ $todayLabel }}
+                            </p>
+                        </div>
 
-            .quick-action-card {
-                border-radius: 15px;
-                padding: 30px;
-                transition: all 0.3s ease;
-                cursor: pointer;
-                border: 2px solid transparent;
-                background: white;
-                height: 100%;
-                box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
-            }
+                        <div class="flex flex-wrap gap-2">
+                            <a href="{{ route('pasien.daftar-poli') }}" class="inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-sm font-semibold btn-brand ring-brand shadow-sm">
+                                <i class="fa-solid fa-hospital-user"></i> Daftar Poli
+                            </a>
+                            <a href="{{ route('pasien.riwayat') }}" class="inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-sm font-semibold bg-white border border-slate-200 text-slate-700 shadow-sm hover:bg-slate-50">
+                                <i class="fa-solid fa-clock-rotate-left text-brand"></i> Riwayat
+                            </a>
+                        </div>
+                    </div>
 
-            .quick-action-card:hover {
-                border-color: #17a2b8;
-                transform: translateY(-5px);
-                box-shadow: 0 10px 25px rgba(23, 162, 184, 0.2);
-            }
-
-            .quick-action-icon {
-                width: 70px;
-                height: 70px;
-                border-radius: 50%;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                margin: 0 auto 15px;
-                font-size: 30px;
-            }
-
-            .quick-action-card h4 {
-                font-size: 18px;
-                font-weight: 700;
-                margin-bottom: 10px;
-            }
-
-            .content-header h1 {
-                color: #495057;
-                font-weight: 600;
-            }
-
-            .breadcrumb {
-                background: transparent;
-            }
-
-            .card {
-                border-radius: 15px;
-                border: none;
-                box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
-            }
-
-            .card-header {
-                background: #f8f9fa;
-                border-bottom: 1px solid #dee2e6;
-                border-radius: 15px 15px 0 0 !important;
-            }
-        </style>
-    @endpush
-
-    <!-- Content Header -->
-    <div class="content-header">
-        <div class="container-fluid">
-            <div class="row mb-2">
-                <div class="col-sm-6">
-                    <h1 class="m-0">
-                        <i class="fas fa-user mr-2"></i>Dashboard Pasien
-                    </h1>
-                </div>
-                <div class="col-sm-6">
-                    <ol class="breadcrumb float-sm-right">
-                        <li class="breadcrumb-item active">
-                            <i class="fas fa-home mr-1"></i>Dashboard
-                        </li>
-                    </ol>
+                    <div class="mt-5 grid grid-cols-1 gap-3 md:grid-cols-3">
+                        <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                            <div class="text-xs font-semibold text-slate-500">No. Rekam Medis</div>
+                            <div class="mt-1 text-sm font-semibold text-slate-900">{{ $user->no_rm ?? '—' }}</div>
+                        </div>
+                        <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                            <div class="text-xs font-semibold text-slate-500">No. KTP</div>
+                            <div class="mt-1 text-sm font-semibold text-slate-900">{{ $user->no_ktp ?? '—' }}</div>
+                        </div>
+                        <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                            <div class="text-xs font-semibold text-slate-500">No. HP</div>
+                            <div class="mt-1 text-sm font-semibold text-slate-900">{{ $user->no_hp ?? '—' }}</div>
+                        </div>
+                    </div>
                 </div>
             </div>
-        </div>
-    </div>
 
-    <!-- Main content -->
-    <section class="content">
-        <div class="container-fluid">
-            <!-- Welcome Card -->
-            <div class="row">
-                <div class="col-12">
-                    <div class="card welcome-card">
-                        <div class="card-body">
-                            <div class="row align-items-center">
-                                <div class="col-md-8">
-                                    <h3 class="mb-3">
-                                        <i class="fas fa-heartbeat mr-2"></i>
-                                        Selamat Datang, {{ Auth::user()->nama }}!
-                                    </h3>
-                                    <p class="mb-0">
-                                        Kelola jadwal pemeriksaan dan lihat riwayat kesehatan Anda dengan mudah.
-                                    </p>
-                                    <div class="patient-info">
-                                        <div class="row">
-                                            <div class="col-md-4">
-                                                <small class="text-white-50">No. Rekam Medis</small>
-                                                <div class="font-weight-bold text-white">
-                                                    {{ Auth::user()->no_rm ?? 'N/A' }}
-                                                </div>
-                                            </div>
-                                            <div class="col-md-4">
-                                                <small class="text-white-50">No. KTP</small>
-                                                <div class="font-weight-bold text-white">
-                                                    {{ Auth::user()->no_ktp ?? 'N/A' }}
-                                                </div>
-                                            </div>
-                                            <div class="col-md-4">
-                                                <small class="text-white-50">No. HP</small>
-                                                <div class="font-weight-bold text-white">
-                                                    {{ Auth::user()->no_hp ?? 'N/A' }}
-                                                </div>
-                                            </div>
+            <!-- Stats -->
+            <div class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <div class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                    <div class="flex items-start justify-between">
+                        <div>
+                            <div class="text-xs font-semibold text-slate-500">Total kunjungan</div>
+                            <div class="mt-2 text-3xl font-bold tracking-tight text-slate-900">{{ $totalAppointments }}</div>
+                        </div>
+                        <div class="sidebar-icon">
+                            <i class="fa-solid fa-clipboard-check text-brand"></i>
+                        </div>
+                    </div>
+                    <div class="mt-4 text-xs text-slate-600">Semua pendaftaran poli kamu</div>
+                </div>
+
+                <div class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                    <div class="flex items-start justify-between">
+                        <div>
+                            <div class="text-xs font-semibold text-slate-500">Selesai diperiksa</div>
+                            <div class="mt-2 text-3xl font-bold tracking-tight text-slate-900">{{ $completedExaminations }}</div>
+                        </div>
+                        <div class="sidebar-icon">
+                            <i class="fa-solid fa-file-waveform text-brand"></i>
+                        </div>
+                    </div>
+                    <div class="mt-4 text-xs text-slate-600">Riwayat pemeriksaan tersimpan</div>
+                </div>
+
+                <div class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                    <div class="flex items-start justify-between">
+                        <div>
+                            <div class="text-xs font-semibold text-slate-500">Menunggu periksa</div>
+                            <div class="mt-2 text-3xl font-bold tracking-tight text-slate-900">{{ $pendingAppointments }}</div>
+                        </div>
+                        <div class="sidebar-icon">
+                            <i class="fa-solid fa-hourglass-half text-brand"></i>
+                        </div>
+                    </div>
+                    <div class="mt-4 text-xs text-slate-600">Antrian yang belum diperiksa</div>
+                </div>
+            </div>
+
+            <div class="mt-6 grid gap-4 lg:grid-cols-2">
+                <!-- Upcoming / waiting -->
+                <div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                    <div class="flex items-center justify-between">
+                        <h2 class="text-base font-bold text-slate-900">Antrian kamu</h2>
+                        <a href="{{ route('pasien.daftar-poli') }}" class="text-xs font-semibold text-brand hover:underline">Daftar lagi</a>
+                    </div>
+
+                    <div class="mt-4 space-y-3">
+                        @forelse ($upcomingAppointments as $row)
+                            @php
+                                $poli = $row->jadwalPeriksa?->dokter?->poli?->nama_poli ?? $row->jadwalPeriksa?->poli?->nama_poli ?? 'Poli';
+                                $dokter = $row->jadwalPeriksa?->dokter?->nama ?? 'Dokter';
+                            @endphp
+                            <div class="rounded-2xl border border-slate-200 p-4 hover:bg-slate-50">
+                                <div class="flex items-start justify-between" style="gap:12px;">
+                                    <div style="min-width:0;">
+                                        <div class="text-sm font-semibold text-slate-900 truncate">
+                                            {{ $poli }} • Dr. {{ $dokter }}
+                                        </div>
+                                        <div class="mt-1 text-xs text-slate-600 truncate">
+                                            Keluhan: {{ \Illuminate\Support\Str::limit($row->keluhan ?? '-', 60) }}
+                                        </div>
+                                        <div class="mt-2 inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] badge-brand">
+                                            <i class="fa-solid fa-hashtag"></i>
+                                            No Antrian: <span class="font-semibold">{{ $row->no_antrian }}</span>
                                         </div>
                                     </div>
-                                </div>
-                                <div class="col-md-4 text-center">
-                                    <i class="fas fa-user-injured fa-5x opacity-75"></i>
+                                    <div class="text-xs text-slate-500 whitespace-nowrap">
+                                        {{ $row->created_at?->format('d/m H:i') }}
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Statistics Cards -->
-            <div class="row">
-                <div class="col-lg-6 col-12">
-                    <div class="small-box bg-info">
-                        <div class="inner">
-                            <h3>{{ \App\Models\DaftarPoli::where('id_pasien', Auth::id())->count() }}</h3>
-                            <p>Total Kunjungan</p>
-                        </div>
-                        <div class="icon">
-                            <i class="fas fa-history"></i>
-                        </div>
-                        <a href="{{ route('pasien.riwayat') }}" class="small-box-footer">
-                            Lihat Riwayat <i class="fas fa-arrow-circle-right"></i>
-                        </a>
+                        @empty
+                            <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+                                Belum ada antrian aktif. Klik <span class="font-semibold">Daftar Poli</span> untuk mengambil nomor.
+                            </div>
+                        @endforelse
                     </div>
                 </div>
 
-                <div class="col-lg-6 col-12">
-                    <div class="small-box bg-warning">
-                        <div class="inner">
-                            <h3>{{ \App\Models\DaftarPoli::where('id_pasien', Auth::id())->whereDoesntHave('periksa')->count() }}
-                            </h3>
-                            <p>Menunggu Periksa</p>
-                        </div>
-                        <div class="icon">
-                            <i class="fas fa-clock"></i>
-                        </div>
-                        <a href="{{ route('pasien.daftar-poli') }}" class="small-box-footer">
-                            Daftar Poli <i class="fas fa-arrow-circle-right"></i>
-                        </a>
+                <!-- Jadwal dokter hari ini -->
+                <div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                    <div class="flex items-center justify-between">
+                        <h2 class="text-base font-bold text-slate-900">Jadwal dokter hari ini</h2>
+                        <span class="badge-brand rounded-full px-3 py-1 text-xs font-semibold">{{ $hariIni }}</span>
                     </div>
-                </div>
-            </div>
 
-            <!-- Informasi Jadwal Dokter -->
-            <div class="row">
-                <div class="col-12">
-                    <div class="card stats-card">
-                        <div class="card-header bg-primary">
-                            <h3 class="card-title text-white">
-                                <i class="fas fa-calendar-alt mr-2"></i>Jadwal Dokter & Poli -
-                                {{ now()->locale('id')->isoFormat('dddd, D MMMM YYYY') }}
-                            </h3>
-                        </div>
-                        <div class="card-body">
+                    <div class="mt-4 space-y-3">
+                        @forelse ($jadwalHariIni as $jadwal)
                             @php
-                                $jadwalHariIni = \App\Models\JadwalPeriksa::with(['dokter.poli'])
-                                    ->where('hari', now()->locale('id')->dayName)
-                                    ->where('aktif', 'Y')
-                                    ->orderBy('jam_mulai', 'asc')
-                                    ->get();
+                                $jamMulai = date('H:i', strtotime($jadwal->jam_mulai));
+                                $jamSelesai = date('H:i', strtotime($jadwal->jam_selesai));
+                                $nowTime = now()->format('H:i');
+
+                                $status = 'Belum mulai';
+                                if ($nowTime >= $jamMulai && $nowTime <= $jamSelesai) {
+                                    $status = 'Sedang praktik';
+                                } elseif ($nowTime > $jamSelesai) {
+                                    $status = 'Selesai';
+                                }
+
+                                $poli = $jadwal->dokter?->poli?->nama_poli ?? 'Poli';
+                                $dokter = $jadwal->dokter?->nama ?? 'Dokter';
                             @endphp
 
-                            @if ($jadwalHariIni->count() > 0)
-                                <div class="row">
-                                    @foreach ($jadwalHariIni as $jadwal)
-                                        <div class="col-lg-6 col-12 mb-3">
-                                            <div class="card border-left-primary shadow-sm h-100">
-                                                <div class="card-body">
-                                                    <div class="row align-items-center">
-                                                        <div class="col-auto">
-                                                            <div class="bg-primary rounded-circle p-3"
-                                                                style="width: 60px; height: 60px; display: flex; align-items: center; justify-content: center;">
-                                                                <i class="fas fa-user-md fa-2x text-white"></i>
-                                                            </div>
-                                                        </div>
-                                                        <div class="col">
-                                                            <h5 class="font-weight-bold mb-1">
-                                                                {{ $jadwal->dokter->nama }}
-                                                            </h5>
-                                                            <p class="mb-2">
-                                                                <span class="badge badge-info badge-lg">
-                                                                    <i
-                                                                        class="fas fa-hospital mr-1"></i>{{ $jadwal->dokter->poli->nama_poli }}
-                                                                </span>
-                                                            </p>
-                                                            <div class="d-flex align-items-center text-muted">
-                                                                <i class="fas fa-clock mr-2"></i>
-                                                                <strong>{{ date('H:i', strtotime($jadwal->jam_mulai)) }}</strong>
-                                                                <span class="mx-2">-</span>
-                                                                <strong>{{ date('H:i', strtotime($jadwal->jam_selesai)) }}</strong>
-                                                            </div>
-                                                            <div class="mt-2">
-                                                                @php
-                                                                    $now = now()->format('H:i');
-                                                                    $jamMulai = date(
-                                                                        'H:i',
-                                                                        strtotime($jadwal->jam_mulai),
-                                                                    );
-                                                                    $jamSelesai = date(
-                                                                        'H:i',
-                                                                        strtotime($jadwal->jam_selesai),
-                                                                    );
-                                                                @endphp
+                            <div class="rounded-2xl border border-slate-200 p-4 hover:bg-slate-50">
+                                <div class="flex items-start justify-between" style="gap:12px;">
+                                    <div style="min-width:0;">
+                                        <div class="text-sm font-semibold text-slate-900 truncate">{{ $poli }}</div>
+                                        <div class="mt-1 text-xs text-slate-600 truncate">Dr. {{ $dokter }}</div>
+                                        <div class="mt-2 text-xs text-slate-600">
+                                            <i class="fa-regular fa-clock mr-1 text-brand"></i>
+                                            <span class="font-semibold text-slate-900">{{ $jamMulai }}</span> – <span class="font-semibold text-slate-900">{{ $jamSelesai }}</span>
+                                        </div>
+                                    </div>
+                                    <span class="rounded-full px-3 py-1 text-[11px] font-semibold badge-brand">{{ $status }}</span>
+                                </div>
+                            </div>
+                        @empty
+                            <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+                                Tidak ada dokter yang praktik hari ini.
+                            </div>
+                        @endforelse
+                    </div>
 
-                                                                @if ($now >= $jamMulai && $now <= $jamSelesai)
-                                                                    <span class="badge badge-success">
-                                                                        <i class="fas fa-circle mr-1"></i>Sedang Praktik
-                                                                    </span>
-                                                                @elseif($now < $jamMulai)
-                                                                    <span class="badge badge-warning">
-                                                                        <i class="fas fa-hourglass-half mr-1"></i>Belum
-                                                                        Dimulai
-                                                                    </span>
-                                                                @else
-                                                                    <span class="badge badge-secondary">
-                                                                        <i class="fas fa-check-circle mr-1"></i>Selesai
-                                                                    </span>
-                                                                @endif
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    @endforeach
-                                </div>
-
-                                <!-- Summary Info -->
-                                <div class="row mt-3">
-                                    <div class="col-md-4 col-12 mb-2">
-                                        <div class="small-box bg-success">
-                                            <div class="inner">
-                                                <h4>{{ \App\Models\User::where('role', 'dokter')->count() }}</h4>
-                                                <p>Total Dokter</p>
-                                            </div>
-                                            <div class="icon">
-                                                <i class="fas fa-user-md"></i>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-4 col-12 mb-2">
-                                        <div class="small-box bg-info">
-                                            <div class="inner">
-                                                <h4>{{ \App\Models\Poli::count() }}</h4>
-                                                <p>Total Poli</p>
-                                            </div>
-                                            <div class="icon">
-                                                <i class="fas fa-hospital"></i>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-4 col-12 mb-2">
-                                        <div class="small-box bg-primary">
-                                            <div class="inner">
-                                                <h4>{{ $jadwalHariIni->count() }}</h4>
-                                                <p>Dokter Praktik Hari Ini</p>
-                                            </div>
-                                            <div class="icon">
-                                                <i class="fas fa-calendar-check"></i>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            @else
-                                <div class="alert alert-info mb-0">
-                                    <h5 class="alert-heading">
-                                        <i class="fas fa-info-circle mr-2"></i>Tidak Ada Jadwal Hari Ini
-                                    </h5>
-                                    <p class="mb-0">
-                                        Tidak ada dokter yang praktik pada hari
-                                        <strong>{{ now()->locale('id')->dayName }}</strong>.
-                                        Silakan cek jadwal di hari lain atau hubungi pihak poliklinik untuk informasi
-                                        lebih lanjut.
-                                    </p>
-                                </div>
-                            @endif
-                        </div>
+                    <div class="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
+                        <i class="fa-solid fa-circle-info mr-2 text-brand"></i>
+                        Jadwal dapat berubah. Untuk mengambil antrian, gunakan tombol <span class="font-semibold">Daftar Poli</span>.
                     </div>
                 </div>
             </div>
 
-            <!-- Antrian Anda Sedang Menunggu -->
-            @php
-                $antrianMenunggu = \App\Models\DaftarPoli::where('id_pasien', Auth::id())
-                    ->with(['jadwalPeriksa.dokter.poli'])
-                    ->whereDoesntHave('periksa')
-                    ->orderBy('created_at', 'desc')
-                    ->get();
-            @endphp
+            <!-- Recent history -->
+            <div class="mt-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                <div class="flex items-center justify-between">
+                    <h2 class="text-base font-bold text-slate-900">Riwayat terbaru</h2>
+                    <a href="{{ route('pasien.riwayat') }}" class="text-xs font-semibold text-brand hover:underline">Lihat semua</a>
+                </div>
 
-            @if ($antrianMenunggu->count() > 0)
-                <div class="row">
-                    <div class="col-12">
-                        <div class="card stats-card">
-                            <div class="card-header bg-warning">
-                                <h3 class="card-title text-white">
-                                    <i class="fas fa-clock mr-2"></i>Antrian Anda yang Sedang Menunggu
-                                </h3>
-                            </div>
-                            <div class="card-body">
-                                <div class="alert alert-warning">
-                                    <i class="fas fa-info-circle mr-2"></i>
-                                    Anda memiliki <strong>{{ $antrianMenunggu->count() }}</strong> antrian yang sedang
-                                    menunggu pemeriksaan
+                <div class="mt-4 grid gap-3 md:grid-cols-2">
+                    @forelse ($recentAppointments as $row)
+                        @php
+                            $poli = $row->jadwalPeriksa?->dokter?->poli?->nama_poli ?? $row->jadwalPeriksa?->poli?->nama_poli ?? 'Poli';
+                            $dokter = $row->jadwalPeriksa?->dokter?->nama ?? 'Dokter';
+                            $status = $row->periksa ? 'Selesai' : 'Menunggu';
+                        @endphp
+                        <div class="rounded-2xl border border-slate-200 p-4 hover:bg-slate-50">
+                            <div class="flex items-start justify-between" style="gap:12px;">
+                                <div style="min-width:0;">
+                                    <div class="text-sm font-semibold text-slate-900 truncate">{{ $poli }} • Dr. {{ $dokter }}</div>
+                                    <div class="mt-1 text-xs text-slate-600 truncate">Keluhan: {{ \Illuminate\Support\Str::limit($row->keluhan ?? '-', 70) }}</div>
+                                    <div class="mt-2 text-xs text-slate-500">{{ $row->created_at?->format('d/m/Y H:i') }}</div>
                                 </div>
-
-                                <div class="row">
-                                    @foreach ($antrianMenunggu as $antrian)
-                                        <div class="col-lg-4 col-md-6 col-12 mb-3">
-                                            <div class="card border-left-warning shadow-sm h-100">
-                                                <div class="card-body">
-                                                    <div class="d-flex justify-content-between align-items-start mb-2">
-                                                        <div>
-                                                            <h5 class="font-weight-bold text-warning mb-1">
-                                                                No. Antrian: {{ $antrian->no_antrian }}
-                                                            </h5>
-                                                            <span class="badge badge-info">
-                                                                {{ $antrian->jadwalPeriksa->dokter->poli->nama_poli ?? 'N/A' }}
-                                                            </span>
-                                                        </div>
-                                                        <i class="fas fa-hourglass-half fa-2x text-warning"></i>
-                                                    </div>
-
-                                                    <hr>
-
-                                                    <div class="mb-2">
-                                                        <small class="text-muted">
-                                                            <i class="fas fa-user-md mr-1"></i> Dokter
-                                                        </small>
-                                                        <div class="font-weight-bold">
-                                                            {{ $antrian->jadwalPeriksa->dokter->nama ?? 'N/A' }}
-                                                        </div>
-                                                    </div>
-
-                                                    <div class="mb-2">
-                                                        <small class="text-muted">
-                                                            <i class="fas fa-calendar mr-1"></i> Jadwal
-                                                        </small>
-                                                        <div>
-                                                            {{ $antrian->jadwalPeriksa->hari ?? 'N/A' }},
-                                                            {{ date('H:i', strtotime($antrian->jadwalPeriksa->jam_mulai ?? '00:00')) }}
-                                                            -
-                                                            {{ date('H:i', strtotime($antrian->jadwalPeriksa->jam_selesai ?? '00:00')) }}
-                                                        </div>
-                                                    </div>
-
-                                                    <div class="mb-2">
-                                                        <small class="text-muted">
-                                                            <i class="fas fa-notes-medical mr-1"></i> Keluhan
-                                                        </small>
-                                                        <div class="small">
-                                                            {{ Str::limit($antrian->keluhan, 50) }}
-                                                        </div>
-                                                    </div>
-
-                                                    <div class="mt-3">
-                                                        <small class="text-muted">
-                                                            <i class="fas fa-clock mr-1"></i>
-                                                            Terdaftar: {{ $antrian->created_at->format('d/m/Y H:i') }}
-                                                        </small>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    @endforeach
-                                </div>
-
-                                <div class="text-center mt-3">
-                                    <a href="{{ route('pasien.riwayat') }}" class="btn btn-outline-primary">
-                                        <i class="fas fa-history mr-2"></i>Lihat Semua Riwayat
-                                    </a>
-                                </div>
+                                <span class="rounded-full px-3 py-1 text-[11px] font-semibold {{ $status === 'Selesai' ? 'badge-brand' : 'bg-amber-50 text-amber-700 border border-amber-200' }}">
+                                    {{ $status }}
+                                </span>
                             </div>
                         </div>
-                    </div>
+                    @empty
+                        <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600 md:col-span-2">
+                            Belum ada riwayat kunjungan.
+                        </div>
+                    @endforelse
                 </div>
-            @endif
+            </div>
         </div>
-    </section>
+    </main>
 </x-layouts.app>

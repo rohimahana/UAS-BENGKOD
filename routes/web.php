@@ -102,4 +102,6 @@ Route::middleware(['auth', 'role:pasien'])->prefix('pasien')->name('pasien.')->g
 
     // Medical History
     Route::get('/riwayat', [DaftarPoliController::class, 'index'])->name('riwayat');
+    // Detail riwayat (hasil pemeriksaan, obat, biaya, dll.)
+    Route::get('/riwayat/{daftarPoli}', [DaftarPoliController::class, 'show'])->name('riwayat.show');
 });
